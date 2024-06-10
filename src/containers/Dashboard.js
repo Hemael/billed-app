@@ -144,13 +144,16 @@ export default class {
         .html("")
       this.counter ++
     }
-
+  
+    bills.forEach(bill => {
+      $(`#open-bill${bill.id}`).off('click')
+    })
+  
     bills.forEach(bill => {
       $(`#open-bill${bill.id}`).click((e) => this.handleEditTicket(e, bill, bills))
     })
-
+  
     return bills
-
   }
 
   getBillsAllUsers = () => {
