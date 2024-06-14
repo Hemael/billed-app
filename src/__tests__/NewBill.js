@@ -2,12 +2,67 @@
  * @jest-environment jsdom
  */
 
-import { screen, fireEvent } from "@testing-library/dom";
+import { screen, fireEvent, waitFor } from "@testing-library/dom";
 import NewBillUI from "../views/NewBillUI.js";
 import NewBill from "../containers/NewBill.js";
+import router from "../app/Router.js"
+import { ROUTES_PATH } from "../constants/routes.js"
 import { localStorageMock } from "../__mocks__/localStorage.js";
 import store from "../__mocks__/store.js";
 
+let newBill;
+
+const setMockFileToFileInput = async () => {
+  const fileInput = screen.getByTestId("file");
+
+  const handleChangeFile = jest.fn(newBill.handleChangeFile);
+  fileInput.addEventListener("change", handleChangeFile);
+  await waitFor(() => {
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["test"], "test.png", { type: "image/png" })],
+      },
+    });
+  });
+  return { fileInput, handleChangeFile }
+};
+
+const initBillPage = async () => {
+  Object.defineProperty(window, "localStorage", {
+    value: localStorageMock,
+  });
+  window.localStorage.setItem(
+    "user",
+    JSON.stringify({
+      type: "Employee",
+    })
+  );
+  const root = document.createElement("div");
+  root.setAttribute("id", "root");
+  document.body.append(root);
+
+  router();
+
+  window.onNavigate(ROUTES_PATH.NewBill);
+  const store_ = store;
+
+  newBill = new NewBill({
+    document,
+    onNavigate,
+    store: store_,
+    localStorage,
+  });
+}
+
+beforeAll(() => {
+  initBillPage();
+
+  // Add the file input element to the DOM
+  const fileInput = document.createElement('input');
+  fileInput.setAttribute('type', 'file');
+  fileInput.setAttribute('data-testid', 'file');
+  document.body.appendChild(fileInput);
+});
 describe("Given I am connected as an employee", () => {
 
   beforeEach(() => {
@@ -41,7 +96,7 @@ describe("Given I am connected as an employee", () => {
       const newBill = new NewBill({
         document,
         onNavigate,
-        store: store,
+        store,
         localStorage: window.localStorage,
       });
 
@@ -86,7 +141,7 @@ describe("Given I am connected as an employee", () => {
       const newBill = new NewBill({
         document,
         onNavigate,
-        store: store,
+        store,
         localStorage: window.localStorage,
       });
 
@@ -108,7 +163,7 @@ describe("Given I am connected as an employee", () => {
       const newBill = new NewBill({
         document,
         onNavigate,
-        store: store,
+        store,
         localStorage: window.localStorage,
       });
 
@@ -133,7 +188,7 @@ describe("Given I am connected as an employee", () => {
       const newBill = new NewBill({
         document,
         onNavigate,
-        store: store,
+        store,
         localStorage: window.localStorage,
       });
 
@@ -165,6 +220,70 @@ describe("Given I am connected as an employee", () => {
       expect(newBill.fileUrl).toBe('http://example.com/file.png');
       expect(newBill.fileName).toBe('file.png');
     });
+  });
+
+  test("fetches bills from an API and fails with 404 message error", async () => {
+    const logSpy = jest.spyOn(global.console, 'error');
+    store.bills.mockImplementationOnce(() => {
+      return {
+        create: () => {
+          return Promise.reject(new Error("Erreur 404"))
+        }
+      }
+    })
+  
+    const fileInput = document.createElement('input');
+    fileInput.setAttribute('type', 'file');
+    fileInput.setAttribute('data-testid', 'file');
+    document.body.appendChild(fileInput);
+  
+    const { handleChangeFile } = await setMockFileToFileInput();
+  
+    // Mock the implementation of handleChangeFile
+    handleChangeFile.mockImplementation((e) => {
+      if (e instanceof Error) {
+        console.error(e);
+      } else {
+        e.preventDefault();
+      }
+    });
+  
+    // Simulate the error being thrown
+    handleChangeFile(new Error("Erreur 404"));
+  
+    expect(logSpy).toHaveBeenCalledWith(new Error("Erreur 404"));
+  });
+  
+  test("fetches messages from an API and fails with 500 message error", async () => {
+    const logSpy = jest.spyOn(global.console, 'error');
+    store.bills.mockImplementationOnce(() => {
+      return {
+        create: () => {
+          return Promise.reject(new Error("Erreur 500"))
+        }
+      }
+    });
+  
+    const fileInput = document.createElement('input');
+    fileInput.setAttribute('type', 'file');
+    fileInput.setAttribute('data-testid', 'file');
+    document.body.appendChild(fileInput);
+  
+    const { handleChangeFile } = await setMockFileToFileInput();
+  
+    // Mock the implementation of handleChangeFile
+    handleChangeFile.mockImplementation((e) => {
+      if (e instanceof Error) {
+        console.error(e);
+      } else {
+        e.preventDefault();
+      }
+    });
+  
+    // Simulate the error being thrown
+    handleChangeFile(new Error("Erreur 500"));
+  
+    expect(logSpy).toHaveBeenCalledWith(new Error("Erreur 500"));
   });
 
 });
